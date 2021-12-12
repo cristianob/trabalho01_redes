@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Teste - Sistema de Controle de Preços de Combustível</title>
+    <style>
+      body { margin: 0; padding-bottom: 3rem; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+
+      #form { background: rgba(0, 0, 0, 0.15); padding: 0.25rem; position: fixed; bottom: 0; left: 0; right: 0; display: flex; height: 3rem; box-sizing: border-box; backdrop-filter: blur(10px); }
+      #input { border: none; padding: 0 1rem; flex-grow: 1; border-radius: 2rem; margin: 0.25rem; }
+      #input:focus { outline: none; }
+      #form > button { background: #333; border: none; padding: 0 1rem; margin: 0.25rem; border-radius: 3px; outline: none; color: #fff; }
+
+      .box {
+        margin-top: 20px;
+        width: 100%;
+        height: 300px;
+        border: 2px solid black;
+      }
+    </style>
+  </head>
+  <body>
+    <form id="form-posto" action="">
+      <p>Formulário Posto</p>
+      <input id="nome" type="text" placeholder="Nome do posto" />
+      <input id="lat" type="text" placeholder="Latitude"/>
+      <input id="long" type="text" placeholder="Longitude"/>
+      <button id="btn-posto">Cadastrar</button>
+    </form>
+
+    <form id="form-combustivel" action="">
+      <p>Formulário Combustível</p>
+      <input id="nome-comb" type="text" autocomplete="off" placeholder="Nome do combustível"/>
+      <button id="btn-comb">Cadastrar</button>
+    </form>
+
+    <form id="form-preco" action="">
+      <p>Formulário Preço</p>
+      <input id="posto" type="text" autocomplete="off" placeholder="ID posto"/>
+      <input id="tipo-comb" type="text" autocomplete="off" placeholder="ID combustível"/>
+      <input id="data" type="date" autocomplete="off" placeholder="Data"/>
+      <input id="preco" type="text" autocomplete="off" placeholder="Preço do combustível"/>
+      <button id="btn-preco">Cadastrar</button>
+    </form>
+
+    <div class="box">
+      <p>Postos Cadastrados</p>
+      <button id="get-posto">Buscar</button>
+      <ul id="posto-retorno"></ul>
+    </div>
+
+    <div class="box">
+      <p>Combustíveis Cadastrados</p>
+      <button id="get-comb">Buscar</button>
+      <ul id="comb-retorno"></ul>
+    </div>
+
+    <div class="box">
+      <p>Preços Cadastrados</p>
+      <button id="get-preco">Buscar</button>
+      <ul id="preco-retorno"></ul>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+
+    <script>
+      var socket = io();
+    
+      var combustivel = document.getElementById('btn-comb');
+      var posto = document.getElementById('btn-posto');
+      var preco = document.getElementById('btn-preco');
+      // Buttons para visualizar o retorno
+      var getPosto = document.getElementById('get-posto');
+      var getComb = document.getElementById('get-comb');
+      var getPreco = document.getElementById('get-preco');
+
+      socket.emit('get posto');
+      socket.emit('get combustivel');
+      socket.emit('get preco');
+    
+    // Posto - Envio e Recebimento de dados
+      posto.addEventListener('click', function(e) {
+        e.preventDefault();
+        let nome = document.getElementById('nome').value;
+        let lat = document.getElementById('lat').value;
+        let long = document.getElementById('long').value;
+
+        let params = {
+          nome: nome,
+          lat: lat,
+          long: long,
+        }
+        console.log(params);
+
+        if(params) {
+          socket.emit('add posto', params);
+          socket.emit('get posto');
+        }
+
+        document.getElementById('nome').value = "";
+        document.getElementById('lat').value = "";
+        document.getElementById('long').value = "";
+      });
+
+      getPosto.addEventListener('click', (e) => {
+        e.preventDefault();
+        socket.emit('get posto');        
+      })
+
+      // Listener
+      socket.on('posto retorno', (retorno) => {
+        console.log(retorno)
+        let lista = document.getElementById('posto-retorno');
+        lista.innerHTML = "";
+
+        retorno.forEach(element => {
+          let item = document.createElement('li');
+          item.textContent = "id/nome/lat/long: " + element.id + " / " + element.nome + " / " + element.latitude + " / " + element.longitude;
+
+          var button = document.createElement('button');
+          button.innerHTML = 'Excluir';
+          button.onclick = function(){
+            console.log("Delete posto", element.id)
+            socket.emit('delete posto', element.id);
+            socket.emit('get posto');
+            return false;
+          };
+          item.appendChild(button);
+
+          lista.appendChild(item);
+        });
+      });
+
+    // Combustível - Envio e Recebimento de dados
+      combustivel.addEventListener('click', function(e) {
+        e.preventDefault();
+        let input = document.getElementById('nome-comb').value;
+        console.log(input);
+
+        if(input) {
+          socket.emit('add combustivel', input);
+          socket.emit('get combustivel');
+          input = '';
+        }
+
+        document.getElementById('nome-comb').value = "";
+      });
+
+      getComb.addEventListener('click', (e) => {
+        e.preventDefault();
+        socket.emit('get combustivel');        
+      })
+
+      // Listener
+      socket.on('combustivel retorno', (retorno) => {
+        console.log(retorno)
+        let lista = document.getElementById('comb-retorno');
+        lista.innerHTML = "";
+
+        retorno.forEach(element => {
+          let item = document.createElement('li');
+          item.textContent = "id/nome: " + element.id + " / " + element.nome;
+
+          var button = document.createElement('button');
+          button.innerHTML = 'Excluir';
+          button.onclick = function(){
+            console.log("Delete combustivel", element.id)
+            socket.emit('delete combustivel', element.id);
+            socket.emit('get combustivel');
+            return false;
+          };
+
+          item.appendChild(button);
+
+          lista.appendChild(item);
+        });
+      })
+
+    // Preço - Envio e Recebimento de dados
+      preco.addEventListener('click', function(e) {
+        e.preventDefault();
+        let posto = document.getElementById('posto').value;
+        let tipoComb = document.getElementById('tipo-comb').value;
+        let data = document.getElementById('data').value;
+        let preco = document.getElementById('preco').value;
+
+        let params = {
+          posto: posto,
+          tipoComb: tipoComb,
+          data: data,
+          preco: preco
+        }
+
+        console.log(params);
+
+        if(params) {
+          socket.emit('add preco', params);
+          socket.emit('get preco');
+        }
+
+        document.getElementById('posto').value = "";
+        document.getElementById('tipo-comb').value = "";
+        document.getElementById('data').value = "";
+        document.getElementById('preco').value = "";
+      });
+
+      getPreco.addEventListener('click', (e) => {
+        e.preventDefault();
+        socket.emit('get preco');        
+      })
+
+      // Listener
+      socket.on('preco retorno', (retorno) => {
+        console.log(retorno)
+        let lista = document.getElementById('preco-retorno');
+        lista.innerHTML = "";
+
+        retorno.forEach(element => {
+          let item = document.createElement('li');
+          item.textContent = "idPosto/idTipo/data/preço: " + element.idPosto + " / " + element.idTipo + " / " + element.data + " / " + element.preco;
+
+          var button = document.createElement('button');
+          button.innerHTML = 'Excluir';
+          button.onclick = function(){
+            console.log("Delete preco", element.id)
+            socket.emit('delete preco', element.id);
+            socket.emit('get preco');
+            return false;
+          };
+          item.appendChild(button);
+
+          lista.appendChild(item);
+        });
+      })
+    </script>
+  </body>
+</html>
